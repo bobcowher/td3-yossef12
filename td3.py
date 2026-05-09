@@ -87,7 +87,7 @@ class Agent():
         q2=q2.view(-1)
         next_critic_value=T.min(qnext_1,qnext_2)
         target=reward + self.gamma*next_critic_value
-        target=target.view(self.batch_size,1)
+        target=target.view(-1)
 
         q1_loss=F.mse_loss(q1,target)
         q2_loss=F.mse_loss(q2,target)
