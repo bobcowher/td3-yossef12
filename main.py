@@ -42,18 +42,18 @@ if __name__ == "__main__":
 
     env = GymWrapper(env)
 
-    actor_learning_rate = 3e-4
-    critic_learning_rate = 3e-4
-    tau = 0.01
+    actor_learning_rate = 1e-4
+    critic_learning_rate = 1e-4
+    tau = 0.005
     gamma = 0.99
     update_actor_interval = 2
     warmup = 10000
     n_actions = env.action_space.shape[0]
     max_size = 1000000
-    layer1_size = 400
-    layer2_size = 300
+    layer1_size = 256
+    layer2_size = 128
     batch_size = 64
-    noise = 0.2
+    noise = 0.1
     
     agent = Agent(actor_learning_rate=actor_learning_rate, critic_learning_rate=critic_learning_rate, input_dims=env.observation_space.shape[0],tau=tau, env=env, 
                 gamma=gamma,update_actor_interval=update_actor_interval, warmup=warmup, n_actions=n_actions, max_size=max_size, layer1_size=layer1_size, layer2_size=layer2_size,
@@ -69,21 +69,37 @@ if __name__ == "__main__":
         observation,_=env.reset()
         done = False
         score=0
+        step_count=0
         while not done:
             action=agent.choose_action(observation)
             next_observation,reward,done,truncated,info=env.step(action)
             score+=reward
             agent.remember_transition(observation,action,reward,next_observation,done)
-            observation=next_observation 
-        for _ in range(10):
             agent.learn()
+            observation=next_observation
+            step_count+=1
+        
         writer.add_scalar(f"score{episode_identifier}",score,global_step=i)
+        writer.add_scalar("memory_buffer_size", agent.memory.mem_cntr, global_step=i)
+        writer.add_scalar("learn_step_count", agent.learn_step_count, global_step=i)
+        
+        if hasattr(agent, 'last_critic_loss'):
+            writer.add_scalar("critic_loss", agent.last_critic_loss, global_step=i)
+        if hasattr(agent, 'last_actor_loss'):
+            writer.add_scalar("actor_loss", agent.last_actor_loss, global_step=i)
 
         if (i%10)==0:
             agent.save_model()
             
-            
-        print(f"episode {i} score{score}")
+        if (i%50)==0:
+            debug_info = f"episode {i} | score: {score:.4f} | buffer: {agent.memory.mem_cntr} | learn_steps: {agent.learn_step_count}"
+            if hasattr(agent, 'last_critic_loss'):
+                debug_info += f" | critic_loss: {agent.last_critic_loss:.6f}"
+            if hasattr(agent, 'last_actor_loss'):
+                debug_info += f" | actor_loss: {agent.last_actor_loss:.6f}"
+            print(debug_info)
+        else:
+            print(f"episode {i} score{score}")
 
 
 
