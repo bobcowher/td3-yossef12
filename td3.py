@@ -41,13 +41,13 @@ class Agent():
     def choose_action(self,observation,validation=False):
         if self.time_step < self.warmup and validation is False:
             mu = T.tensor(np.random.normal(scale=self.noise, size=(self.n_actions,)), dtype=T.float).to(self.actor.device)
-            mu = T.clamp(mu, T.tensor(self.min_action, dtype=T.float).to(self.actor.device), T.tensor(self.max_action, dtype=T.float).to(self.actor.device))
+            mu = T.clamp(mu, T.tensor(self.min_action[0], dtype=T.float).to(self.actor.device), T.tensor(self.max_action[0], dtype=T.float).to(self.actor.device))
         else:
             state=T.tensor(observation,dtype=T.float).to(self.actor.device)
             mu =self.actor.forward(state).to(self.actor.device)
 
         mu_prime= mu + T.tensor(np.random.normal(scale=self.noise, size=(self.n_actions,)), dtype=T.float).to(self.actor.device)
-        mu_prime = T.clamp(mu_prime, T.tensor(self.min_action, dtype=T.float).to(self.actor.device), T.tensor(self.max_action, dtype=T.float).to(self.actor.device)) 
+        mu_prime = T.clamp(mu_prime, T.tensor(self.min_action[0], dtype=T.float).to(self.actor.device), T.tensor(self.max_action[0], dtype=T.float).to(self.actor.device)) 
              
         self.time_step+=1
         return mu_prime.cpu().detach().numpy()
@@ -62,6 +62,8 @@ class Agent():
     def learn(self):
         if self.memory.mem_cntr<self.batch_size*10:
             return
+        self.critic_loss_history = []
+        self.actor_loss_history = []
         state, action, reward, next_state, done = self.memory.sample_buffer(self.batch_size)
 
         reward=T.tensor(reward,dtype=T.float).to(self.actor.device)
@@ -81,14 +83,17 @@ class Agent():
         qnext_2[done]=0.0
         qnext_1=qnext_1.view(-1)
         qnext_2=qnext_2.view(-1)
+        q1=q1.view(-1)
+        q2=q2.view(-1)
         next_critic_value=T.min(qnext_1,qnext_2)
         target=reward + self.gamma*next_critic_value
-        target=target.view(-1)
+        target=target.view(self.batch_size,1)
 
         q1_loss=F.mse_loss(q1,target)
         q2_loss=F.mse_loss(q2,target)
 
         critic_loss=q1_loss+q2_loss
+        self.last_critic_loss = critic_loss.item()
         self.critic_1.optimizer.zero_grad()
         self.critic_2.optimizer.zero_grad()
 
@@ -109,6 +114,7 @@ class Agent():
         actor_loss = -T.mean(actor_q1_loss)
         actor_loss.backward()
         self.actor.optimizer.step()
+        self.last_actor_loss = actor_loss.item()
         self.update_network_paramters(tau=self.tau)
         
         
