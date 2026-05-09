@@ -1,4 +1,4 @@
-gym==0.23.0
+gymnasium
 pybullet
 matplotlib
 tensorboard
