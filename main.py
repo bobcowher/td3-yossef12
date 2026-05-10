@@ -10,7 +10,7 @@ import logging
 
 # Suppress robosuite controller warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='robosuite')
-logging.getLogger('robosuite').setLevel(logging.ERROR)
+logging.getLogger('robosuite_logs').setLevel(logging.ERROR)
 
 import robosuite as suite
 from robosuite import load_composite_controller_config
